@@ -1,0 +1,122 @@
+import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.Random;
+
+// inventory: radio, flashlight, journal, oxygen, fragments
+/*
+start - first begin
+passage - first map scrap
+chamber - letters (A-F) on walls (puzzle here)
+junction - three directions, thin air
+gallery - battery drains fast
+vault - names on floor (oxygen + map scrap)
+split - final choice (left or right)
+*/
+
+public class BuriedBelowHartsville {
+    // stats
+    static int oxygen = 100;
+    static int battery = 100;
+    static int trust = 0;
+
+    // inventory
+    static boolean hasRadio = false;
+    static boolean hasJournal = false;
+    static boolean hasOxygenCan = false;
+    static int mapFragments = 0;
+
+    static String room = "start";
+    static boolean gameOver = false;
+    static Scanner sc = new Scanner(System.in);
+    static Random rng = new Random();
+
+
+    public static void main(String[] args) {
+        System.out.println("=== BURIED BELOW HARTSVILLE ===");
+        System.out.println("You fell through the ground at the old construction site.");
+        System.out.println("You wake up in a dirt tunnel. It's dark. The air is thin.");
+        System.out.println("You find a cracked radio in the rubble. A voice crackles through.");
+        System.out.println("Voice: \"Hello? Oh thank god. I'm trapped too. I can help you.\"");
+        System.out.println();
+        System.out.println("Type commands to play. Try: look, go north, take radio, help");
+        System.out.println();
+
+        hasRadio = true;
+
+
+        while (!gameOver) {
+            System.out.print("[Oxygen: " + oxygen + " | Battery: " + battery + "] > ");
+            String cmd = sc.nextLine().toLowerCase();
+            //handleCommand(cmd); // write later
+            drain();
+        }
+    }
+
+    static void drain() {
+        int o2loss;
+        if (room.equals("gas")){ // create rooms later
+            o2loss = 8;
+        }
+        else {
+            o2loss = 3;
+        }
+        int batLoss;
+        if (room.equals("gallery")){ // create rooms later
+            batLoss = 5;
+        }
+        else {
+            batLoss = 2;
+        }
+
+        oxygen  = Math.max(0, oxygen  - o2loss);
+        battery = Math.max(0, battery - batLoss);
+
+        if (oxygen == 0){
+            System.out.println("You run out of air. The tunnels win.");
+            badEnding();
+            return;
+        }
+        if (battery == 0){
+            System.out.println("Your flashlight dies. Reading anything is very hard now.");
+        }
+        if (oxygen  <= 20){
+            System.out.println("WARNING: Oxygen is very low.");
+        }
+        if (battery <= 15){
+            System.out.println("WARNING: Battery is almost dead.");
+        }
+    }
+
+    // endings
+    static void goodEnding() {
+        gameOver = true;
+        System.out.println();
+        System.out.println("=== ENDING: ESCAPE ===");
+        System.out.println("You take the left path. The letters A, C, E line the walls.");
+        System.out.println("The tunnel slopes upward. Cold air. Real light.");
+        System.out.println("You crawl out into a field at the edge of town. It's dusk.");
+        System.out.println("You look back at the hole in the earth.");
+        System.out.println("The radio crackles one last time.");
+        System.out.println("Voice: \"...hello? Is someone there?\"");
+        System.out.println("You walk away.");
+        System.out.println("======================");
+    }
+
+    static void badEnding() {
+        gameOver = true;
+        System.out.println();
+        System.out.println("=== ENDING: LOST BELOW ===");
+        System.out.println("You take the right path. Wider. Easier.");
+        System.out.println("The voice guides you, calm and steady.");
+        System.out.println("Then you pass the same wall twice. Then again.");
+        System.out.println("The path loops. You're not going anywhere.");
+        System.out.println("The radio gets clearer the longer you walk.");
+        System.out.println("You understand now why.");
+        System.out.println();
+        System.out.println("Somewhere above, a phone rings with no answer.");
+        System.out.println("Down here, a new voice joins the radio.");
+        System.out.println("Your voice.");
+        System.out.println("\"...hello? Is someone there? I'm trapped too. I can help you.\"");
+        System.out.println("==========================");
+    }
+}

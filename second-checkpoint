@@ -1,0 +1,360 @@
+import java.util.Scanner;
+import java.util.Random;
+
+// inventory: radio, flashlight, journal, oxygen, fragments
+/*
+start - first begin
+passage - first map scrap
+chamber - letters (A-F) on walls (puzzle here)
+junction - three directions, thin air
+gallery - battery drains fast
+vault - names on floor (oxygen + map scrap)
+split - final choice (left or right)
+*/
+
+public class BuriedBelowHartsville {
+
+    // stats
+    static int oxygen  = 100;
+    static int battery = 100;
+    static int trust   = 0;
+
+    // inventory
+    static boolean hasRadio     = false;
+    static boolean hasJournal   = false;
+    static boolean hasOxygenCan = false;
+    static int mapFragments     = 0;
+
+    static String  room     = "start";
+    static boolean gameOver = false;
+    static Scanner sc       = new Scanner(System.in);
+    static Random  rng      = new Random(); // luck
+    static boolean tookAction = false;
+
+    static String[] radioLines = {
+            "Voice: \"Go south from the junction. Trust me.\"",
+            "Voice: \"The letters on the walls are just graffiti. Ignore them.\"",
+            "Voice: \"Don't bother reading the journal. It'll just scare you.\"",
+            "Voice: \"At the split, go right. I'm sure of it.\"",
+            "Voice: \"I've been down here a while. I know these tunnels.\""
+    };
+
+    static Room[] rooms = {
+            new Room("start",
+                    "A collapsed tunnel. Dirt and broken concrete everywhere.\n" +
+                            "Letters carved into the wall: A, C, E",
+                    null, null, "passage", null),
+
+            new Room("passage",
+                    "A narrow dirt passage. A torn map scrap is stuck to the wall.",
+                    null, "chamber", null, "start"),
+
+            new Room("chamber",
+                    "A wider room. Letters carved on the walls: A, B, C, D, E, F\n" +
+                            "A journal sits on the ground.",
+                    "passage", "junction", null, null),
+
+            new Room("junction",
+                    "Three tunnels meet here. The air feels thin.\n" +
+                            "Letters scratched into the floor: A _ C E",
+                    "chamber", null, "gallery", null),
+
+            new Room("gallery",
+                    "A long hallway. Almost totally dark.\n" +
+                            "Letters on the wall: A, C, E, F\n" +
+                            "[WARNING: battery drains faster here]",
+                    null, "vault", null, "junction"),
+
+            new Room("vault",
+                    "A large room. Names scratched into the floor, dating back decades.\n" +
+                            "An oxygen canister leans against the wall.\n" +
+                            "A map scrap is tucked under one of the names.",
+                    "gallery", "split", null, null),
+
+            new Room("split",
+                    "The tunnel splits into two paths.\n" +
+                            "LEFT: letters at the entrance read A, C, E\n" +
+                            "RIGHT: wider, better lit, no markings\n" +
+                            "The radio crackles: \"Go right. Trust me.\"\n" +
+                            "Type 'go left' or 'go right'.",
+                    null, null, null, null)
+    };
+
+    public static void main(String[] args) {
+        System.out.println("=== BURIED BELOW HARTSVILLE ===");
+        System.out.println("You fell through the ground at the old construction site.");
+        System.out.println("You wake up in a dirt tunnel. It's dark. The air is thin.");
+        System.out.println("You find a cracked radio in the rubble. A voice crackles through.");
+        System.out.println("Voice: \"Hello? Oh thank god. I'm trapped too. I can help you.\"");
+        System.out.println();
+        System.out.println("Type commands to play. Try: look, go east, help");
+        System.out.println();
+
+        hasRadio = true;
+        look(); // show starting room right away
+
+        while (!gameOver) { // displays oxygen + battery, looks for command, drains
+            System.out.print("[Oxygen: " + oxygen + " | Battery: " + battery + "] > ");
+            String cmd = sc.nextLine().trim().toLowerCase();
+            handleCommand(cmd);
+            drain();
+        }
+    }
+
+    static void handleCommand(String cmd) {
+        tookAction = false; // resests
+        if (cmd.equals("look")) {
+            look();
+        } else if (cmd.startsWith("go ")) {
+            move(cmd.substring(3));
+            tookAction = true;
+        }
+        else if (cmd.startsWith("take ")) {
+            take(cmd.substring(5));
+            tookAction = true;
+        }
+        else if (cmd.startsWith("read ")) {
+            read(cmd.substring(5));
+        }
+        else if (cmd.startsWith("use ")) {
+            use(cmd.substring(4));
+            tookAction = true;
+        }
+        else if (cmd.equals("radio") || cmd.equals("listen")) {
+            radio();
+            tookAction = true;
+        }
+        else if (cmd.equals("inventory") || cmd.equals("inv")) {
+            System.out.println("You have:");
+            if (hasRadio) {
+                System.out.println("  - radio");
+            }
+            if (hasJournal) {
+                System.out.println("  - journal");
+            }
+            if (hasOxygenCan) {
+                System.out.println("  - oxygen canister");
+            }
+            System.out.println("  - map fragments: " + mapFragments + "/2");
+        }
+        else if (cmd.equals("help")) {
+            System.out.println("Commands: look, go [direction], take [item], read [item], use [item], radio, inventory");
+        }
+        else {
+            System.out.println("Unknown command. Type 'help'.");
+        }
+    }
+
+    // actions
+    static void look() {
+        Room r = getRoom(room);
+        System.out.println(r.description);
+        System.out.print("Exits:");
+        if (r.north != null){
+            System.out.print(" north");
+        }
+        if (r.south != null){
+            System.out.print(" south");
+        }
+        if (r.east  != null){
+            System.out.print(" east");
+        }
+        if (r.west  != null) {
+            System.out.print(" west");
+        }
+        if (room.equals("split")){
+            System.out.print(" left/right");
+        }
+        System.out.println();
+    }
+
+    static void move(String dir) {
+        if (room.equals("split") && dir.equals("left"))  { goodEnding(); return; }
+        if (room.equals("split") && dir.equals("right")) { badEnding();  return; }
+
+        Room current = getRoom(room);
+        String next  = current.getExit(dir);
+
+        if (next != null) {
+            room = next;
+            look();
+            if (hasRadio && rng.nextInt(3) == 0) {
+                System.out.println(radioLines[rng.nextInt(radioLines.length)]);
+            }
+        }
+        else {
+            System.out.println("You can't go that way.");
+        }
+    }
+
+    static void take(String item) {
+        if (item.equals("map") || item.equals("map scrap")) {
+            if ((room.equals("passage") || room.equals("vault")) && mapFragments < 2) {
+                mapFragments++;
+                System.out.println("You pick up a map scrap. (" + mapFragments + "/2)");
+                if (mapFragments == 2) {
+                    System.out.println("You piece the scraps together. The route is clear:");
+                    System.out.println("passage > chamber > junction > gallery > vault > LEFT at the split.");
+                }
+            }
+            else {
+                System.out.println("Nothing to take here.");
+            }
+
+        }
+        else if (item.equals("journal")) {
+            if (room.equals("chamber")) {
+                hasJournal = true;
+                System.out.println("You pick up the journal. Type 'read journal' to read it.");
+            } else {
+                System.out.println("No journal here.");
+            }
+
+        }
+        else if (item.equals("canister") || item.equals("oxygen canister")) {
+            if (room.equals("vault")) {
+                hasOxygenCan = true;
+                System.out.println("You grab the oxygen canister. Type 'use canister' when oxygen is low.");
+            } else {
+                System.out.println("No canister here.");
+            }
+
+        }
+        else {
+            System.out.println("You don't see that here.");
+        }
+    }
+
+    static void read(String item) {
+        if (item.equals("journal")) {
+            if (!hasJournal) { System.out.println("You don't have the journal."); return; }
+            System.out.println("--- Journal ---");
+            System.out.println("Day 3:  The voice told me to go west. I looped for an hour.");
+            System.out.println("Day 8:  A, C, E appear near safe exits. B, D, F near dead ends.");
+            System.out.println("Day 14: At the split, go LEFT. The voice will say go right. It's lying.");
+            System.out.println("        I don't think the voice is human.");
+            System.out.println("---------------");
+            trust -= 2;
+
+        }
+        else if (item.equals("map")) {
+            if (mapFragments == 0){
+                System.out.println("You don't have any map scraps yet.");
+                return;
+            }
+            if (mapFragments >= 1){
+                System.out.println("Scrap 1: shows the passage and chamber.");
+            }
+            if (mapFragments >= 2){
+                System.out.println("Scrap 2: shows the vault and a split. LEFT path is circled.");
+            }
+
+        }
+        else {
+            System.out.println("You can't read that.");
+        }
+    }
+
+    static void use(String item) {
+        if (item.equals("canister") || item.equals("oxygen canister")) {
+            if (!hasOxygenCan) { System.out.println("You don't have a canister."); return; }
+            oxygen = Math.min(100, oxygen + 40);
+            hasOxygenCan = false;
+            System.out.println("You breathe from the canister. Oxygen is now " + oxygen + ".");
+        }
+        else {
+            System.out.println("You can't use that.");
+        }
+    }
+
+    static void radio() {
+        if (!hasRadio) { System.out.println("You don't have a radio."); return; }
+        System.out.println(radioLines[rng.nextInt(radioLines.length)]);
+        System.out.print("Follow the voice's advice? (yes/no) > ");
+        String ans = sc.nextLine().trim().toLowerCase();
+        if (ans.equals("yes")) {
+            System.out.println("You make a note of what the voice said.");
+            trust++;
+        } else {
+            System.out.println("You decide to trust your own findings.");
+            trust--;
+        }
+    }
+
+    static Room getRoom(String name) {
+        for (int i = 0; i < rooms.length; i++) {
+            if (rooms[i].name.equals(name)) return rooms[i];
+        }
+        return null;
+    }
+
+    static void drain() {
+        if (tookAction) {
+            int batLoss;
+            int oxLoss;
+
+            if (room.equals("gallery")) {
+                batLoss = 5;
+            } else {
+                batLoss = 2;
+            }
+
+            if (room.equals("junction")) {
+                oxLoss = 5;
+            } else {
+                oxLoss = 3;
+            }
+
+            oxygen  = Math.max(0, oxygen  - oxLoss);
+            battery = Math.max(0, battery - batLoss);
+
+            if (oxygen == 0) {
+                System.out.println("You run out of air. The tunnels win.");
+                badEnding();
+                return;
+            }
+            if (battery == 0){
+                System.out.println("Your flashlight dies. Reading anything is very hard now.");
+            }
+            if (oxygen  <= 20){
+                System.out.println("WARNING: Oxygen is very low.");
+            }
+            if (battery <= 15){
+                System.out.println("WARNING: Battery is almost dead.");
+            }
+        }
+    }
+
+    // endings
+    static void goodEnding() {
+        gameOver = true;
+        System.out.println();
+        System.out.println("=== ENDING: ESCAPE ===");
+        System.out.println("You take the left path. The letters A, C, E line the walls.");
+        System.out.println("The tunnel slopes upward. Cold air. Real light.");
+        System.out.println("You crawl out into a field at the edge of town. It's dusk.");
+        System.out.println("You look back at the hole in the earth.");
+        System.out.println("The radio crackles one last time.");
+        System.out.println("Voice: \"...hello? Is someone there?\"");
+        System.out.println("You walk away.");
+        System.out.println("======================");
+    }
+
+    static void badEnding() {
+        gameOver = true;
+        System.out.println();
+        System.out.println("=== ENDING: LOST BELOW ===");
+        System.out.println("You take the right path. Wider. Easier.");
+        System.out.println("The voice guides you, calm and steady.");
+        System.out.println("Then you pass the same wall twice. Then again.");
+        System.out.println("The path loops. You're not going anywhere.");
+        System.out.println("The radio gets clearer the longer you walk.");
+        System.out.println("You understand now why.");
+        System.out.println();
+        System.out.println("Somewhere above, a phone rings with no answer.");
+        System.out.println("Down here, a new voice joins the radio.");
+        System.out.println("Your voice.");
+        System.out.println("\"...hello? Is someone there? I'm trapped too. I can help you.\"");
+        System.out.println("==========================");
+    }
+}
